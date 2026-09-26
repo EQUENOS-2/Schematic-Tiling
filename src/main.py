@@ -5,22 +5,28 @@ from tiling import TilingTree
 
 
 class UI:
-    tiler: TilingTree
+    tiler: TilingTree | None
     root: Tk
     width_entry: Entry
     length_entry: Entry | None
     result_label: Label
 
     def __init__(self):
-        self.tiler = TilingTree()
+        try:
+            self.tiler = TilingTree()
+            error = None
+        except AssertionError as exc:
+            self.tiler = None
+            error = exc
+
         self.root = Tk()
 
         self.root.title("Tiling Script")
         self.root.geometry("320x220")
 
-        self._setup()
+        self._setup(error)
 
-    def _setup(self) -> None:
+    def _setup(self, error: AssertionError | None = None) -> None:
         instruction_label = Label(
             self.root, text="Input the size of the build (in blocks)"
         )
@@ -35,7 +41,7 @@ class UI:
         self.width_entry = Entry(input_frame)
         self.width_entry.grid(row=0, column=1, padx=5, pady=5)
 
-        if self.tiler.needs_length():
+        if self.tiler is None or self.tiler.needs_length():
             Label(input_frame, text="Length:").grid(
                 row=1, column=0, padx=5, pady=5, sticky="e"
             )
@@ -49,16 +55,25 @@ class UI:
 
         self.result_label = Label(self.root, text="")
         self.result_label.pack(pady=5)
+        # display error right away
+        if error is None:
+            return
+        self.width_entry.config(state="disabled")
+        if self.length_entry:
+            self.length_entry.config(state="disabled")
+        self.result_label.config(text=str(error), foreground="red")
 
     def apply_values(self):
         width = self.width_entry.get()
         length = self.length_entry.get() if self.length_entry else None
 
         try:
+            assert self.tiler, "Something went wrong during parsing"
+
             width_val = int(width)
             length_val = 0 if length is None else int(length)
             if width_val <= 0 or length_val <= 0 and length is not None:
-                raise ValueError("Values must be positive")
+                raise ValueError("Please enter valid positive numbers")
 
             self.width_entry.config(state="disabled")
             if self.length_entry:
@@ -73,10 +88,8 @@ class UI:
             schem.save(f"{schem.name}.litematic")
             self.root.destroy()
 
-        except ValueError:
-            self.result_label.config(
-                text="Please enter valid positive numbers", foreground="red"
-            )
+        except ValueError as err:
+            self.result_label.config(text=err.args[0], foreground="red")
         except AssertionError as err:
             self.result_label.config(text=str(err), foreground="red")
 

@@ -97,7 +97,9 @@ def make_rectangle_contour(
         reg[x1, y, z] = block
 
 
-def knapsack_solver(numbers: list[int], n: int) -> tuple[int, ...]:
+def knapsack_solver(
+    numbers: list[int], n: int, strict: bool = False
+) -> tuple[int, ...]:
     """Given a list of positive integers of size `m` sorted in descending order,
     and a natural number `n`, finds `m` positive integers `c[0], c[1], ...`
     such that `c[0] numbers[0] + c[1] numbers[1] + ... >= n` and this sum is minimal."""
@@ -122,6 +124,9 @@ def knapsack_solver(numbers: list[int], n: int) -> tuple[int, ...]:
         if remainder < 0:
             remainder += numbers[0]
         best_ans = max(best_ans, tuple([-remainder] + c))
+
+    if strict and best_ans[0] != 0:
+        raise ValueError(f"Unable to find a solution for n={n} and widths={numbers}.")
 
     return best_ans[1:]
 
@@ -224,30 +229,36 @@ class TilingSubgroup:
                 ), "'OFFSET' X-dependence is not supported yet"
                 continue
 
-            raise RuntimeError("Outline generators are not supported yet.")
+            raise AssertionError("Outline generators are not supported yet.")
             outline_count += unit.is_outline
 
             if unit.region.volume() > 1:  # type: ignore
-                raise ValueError(
+                raise AssertionError(
                     f"Subgroup '{sg_id}' has been recognized as an outline generator."
                     " Outline corners must be regions of size 1x1x1, not"
                     f" {unit.region.width}x{unit.region.height}x{unit.region.length}."
                 )
             if unit.x_dependence not in (XDependence.NONE, XDependence.OFFSET):
-                raise ValueError(
+                raise AssertionError(
                     f"Subgroup '{sg_id}' has been recognized as an outline generator."
                     " Outline corners can not be flagged as caps or tiles."
                 )
 
         if outline_count == 0:
-            if cap_count > 1:
-                raise ValueError(f"Subgroup '{sg_id}' has more than one cap-tile.")
-            if zdep_count not in (0, len(self.units)):
-                raise ValueError(
-                    f"Subgroup '{sg_id}' has mixed Z-dependence, even though it's not an outline generator."
-                )
+            assert cap_count <= 1, f"Subgroup '{sg_id}' has more than one cap-tile."
+            assert zdep_count in (0, len(self.units)), (
+                f"Subgroup '{sg_id}' has mixed Z-dependence,"
+                " even though it's not an outline generator."
+            )
+            widths = [
+                u.region.width for u in self.units if u.x_dependence is XDependence.TILE
+            ]
+            assert len(widths) == len(set(widths)), (
+                f"Subgroup '{sg_id}' has several tiles of the same size."
+                " That's ambiguous."
+            )
         elif outline_count != 2 or len(self.units) != 2:
-            raise ValueError(
+            raise AssertionError(
                 f"The outline-generating subgroup '{sg_id}' must have exactly 2 elements."
             )
 
@@ -255,10 +266,9 @@ class TilingSubgroup:
         """Assuming that `.verify()` has been called,
         computes the minimal hitbox to enclose the tiled contraption.
         """
-        if self.is_outline:
-            raise RuntimeError(
-                "The `.get_box()` method is poorly defined for outlines."
-            )
+        assert (
+            not self.is_outline
+        ), "The `.get_box` method is poorly defined for outlines."
 
         tiles: list[TilingUnit] = []
         cap = None
@@ -275,7 +285,7 @@ class TilingSubgroup:
         if tiles:
             t_min_x = min(u.min_x() for u in tiles)
             widths = [u.region.width for u in tiles]
-            sol = knapsack_solver(widths, width - cap_w - t_min_x)
+            sol = knapsack_solver(widths, width - cap_w - t_min_x, strict=True)
             self._knapsack_cache = sol
             t_max_x = t_min_x + sum(ci * wi for ci, wi in zip(sol, widths)) + cap_w
         else:
@@ -328,13 +338,13 @@ class TilingSubgroup:
 
         if not tiles:
             return
+        x = min(u.min_x() for u in tiles) - x0
 
         if cap:
             sol = self._knapsack_cache
         else:
-            sol = knapsack_solver([u.region.width for u in tiles], region.width)
+            sol = knapsack_solver([u.region.width for u in tiles], region.width - x)
 
-        x = min(u.min_x() for u in tiles) - x0
         for m, unit in zip(sol, tiles):
             y = unit.region.y - y0
             z = unit.region.z - z0
@@ -458,7 +468,7 @@ class TilingTree:
             if path.endswith("Parts.litematic"):
                 self._parse_name(path)
                 return Schematic.load(path)
-        raise RuntimeError(
+        raise AssertionError(
             "Couldn't find parts for tiling. Make sure you have a file"
             "ending with 'Parts.litematic' in the same directory with the program."
         )

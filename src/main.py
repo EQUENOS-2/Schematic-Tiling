@@ -1,7 +1,7 @@
 from tkinter import Tk
 from tkinter.ttk import Button, Entry, Frame, Label
 
-from tiling import TilingTree
+from tiling import KnapsackSolutionNotFound, TilingTree
 
 
 class UI:
@@ -58,10 +58,13 @@ class UI:
         # display error right away
         if error is None:
             return
-        self.width_entry.config(state="disabled")
-        if self.length_entry:
-            self.length_entry.config(state="disabled")
+        self.set_input_state("disabled")
         self.result_label.config(text=str(error), foreground="red")
+
+    def set_input_state(self, state: str) -> None:
+        self.width_entry.config(state=state)
+        if self.length_entry:
+            self.length_entry.config(state=state)
 
     def apply_values(self):
         width = self.width_entry.get()
@@ -75,11 +78,10 @@ class UI:
             if width_val <= 0 or length_val <= 0 and length is not None:
                 raise ValueError("Please enter valid positive numbers")
 
-            self.width_entry.config(state="disabled")
-            if self.length_entry:
-                self.length_entry.config(state="disabled")
+            self.set_input_state("disabled")
+            str_size = f"{width}x{length}" if length_val else f"{width} wide"
             self.result_label.config(
-                text=f"Generating {width_val}x{length_val} schematic...",
+                text=f"Generating {str_size} schematic...",
                 foreground="green",
                 state="disabled",
             )
@@ -88,9 +90,17 @@ class UI:
             schem.save(f"{schem.name}.litematic")
             self.root.destroy()
 
+        except KnapsackSolutionNotFound as err:
+            self.set_input_state("enabled")
+            self.result_label.config(
+                text=f"{err}\nTry width={int(width) - err.remainder} instead of {width}.",
+                foreground="red",
+            )
         except ValueError as err:
-            self.result_label.config(text=err.args[0], foreground="red")
+            self.set_input_state("enabled")
+            self.result_label.config(text=str(err), foreground="red")
         except AssertionError as err:
+            self.set_input_state("enabled")
             self.result_label.config(text=str(err), foreground="red")
 
     def run(self) -> None:

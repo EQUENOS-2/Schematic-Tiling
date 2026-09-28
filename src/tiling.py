@@ -97,12 +97,31 @@ def make_rectangle_contour(
         reg[x1, y, z] = block
 
 
+class KnapsackSolutionNotFound(ValueError):
+    def __init__(self, message: str, remainder: int):
+        super().__init__(message)
+        self.remainder: int = remainder
+
+
 def knapsack_solver(
     numbers: list[int], n: int, strict: bool = False
 ) -> tuple[int, ...]:
     """Given a list of positive integers of size `m` sorted in descending order,
     and a natural number `n`, finds `m` positive integers `c[0], c[1], ...`
-    such that `c[0] numbers[0] + c[1] numbers[1] + ... >= n` and this sum is minimal."""
+    such that `c[0] numbers[0] + c[1] numbers[1] + ... >= n` and this sum is minimal.
+
+    If `strict` is `True`, the solver only returns exact solutions, raising
+    a `ValueError` if it failed to find one."""
+    # this funny piece of code is designed to propose the minimal accepted value for a solution to exist
+    if n <= 0:
+        try:
+            knapsack_solver(numbers, 1, strict)
+        except KnapsackSolutionNotFound as err:
+            raise KnapsackSolutionNotFound(
+                "This width is too small.", err.remainder + n - 1
+            )
+        raise KnapsackSolutionNotFound("This width is too small.", n - 1)
+
     assert all(
         a > b > 0 for a, b in zip(numbers, numbers[1:])
     ), "Numbers are not in strictly descending order or not positive"
@@ -126,7 +145,9 @@ def knapsack_solver(
         best_ans = max(best_ans, tuple([-remainder] + c))
 
     if strict and best_ans[0] != 0:
-        raise ValueError(f"Unable to find a solution for n={n} and widths={numbers}.")
+        raise KnapsackSolutionNotFound(
+            f"Unable to find a solution for n={n} and widths={numbers}.", best_ans[0]
+        )
 
     return best_ans[1:]
 
@@ -270,6 +291,7 @@ class TilingSubgroup:
             not self.is_outline
         ), "The `.get_box` method is poorly defined for outlines."
 
+        static_units: list[TilingUnit] = []
         tiles: list[TilingUnit] = []
         cap = None
         for unit in self.units:
@@ -277,6 +299,8 @@ class TilingSubgroup:
                 tiles.append(unit)
             elif unit.x_dependence is XDependence.CAP:
                 cap = unit
+            elif unit.x_dependence is XDependence.NONE:
+                static_units.append(unit)
         tiles.sort(key=lambda u: u.region.width, reverse=True)
         # Given tiles, we want to know their min_x - that's the starting point for tiling them;
         # The tiling continues until it exceeds schem_x = width - cap.width, i.e. we run
@@ -292,8 +316,15 @@ class TilingSubgroup:
             t_min_x = cast(int, float("inf"))
             t_max_x = -t_min_x
 
-        min_x = min(t_min_x, min(u.min_x() for u in self.units))
-        max_x = max(t_max_x, max(u.max_x() for u in self.units))
+        if static_units:
+            s_min_x = min(u.min_x() for u in static_units)
+            s_max_x = max(u.max_x() for u in static_units)
+        else:
+            s_min_x = cast(int, float("inf"))
+            s_max_x = -s_min_x
+
+        min_x = min(t_min_x, s_min_x)
+        max_x = max(t_max_x, s_max_x)
         min_y = min(u.min_y() for u in self.units)
         max_y = max(u.max_y() for u in self.units)
         min_z = min(u.min_z() for u in self.units)
@@ -484,7 +515,8 @@ class TilingTree:
     ) -> Schematic:
         if author is None:
             author = self.schem.author
-        schem = Schematic(f"{self.name} {width}x{length}", author)
+        suffix = f"{width}x{length}" if length else str(width)
+        schem = Schematic(f"{self.name} {suffix}", author)
         for key, group in self.groups.items():
             schem.regions[key] = group.stack(width, length)
         return schem

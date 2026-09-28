@@ -13,7 +13,7 @@ Group//Subgroup::ID//X-flag//Z-flag
 ```
 Then you save the litematica as `<insert_name> Parts.litematic` and ensure that the program is in the same directory.
 
-This markdown is easier to explain using examples.
+This markdown is easier to explain with examples. You can read the explanation with images below, or download existing [examples](examples).
 ## `Group`
 Suppose we have a schematic with just two regions, and they're named `A` and `B`. Then, after launching the program, even though it will ask to input width, it will output the same exact schematic with two regions: `A` and `B`.
 

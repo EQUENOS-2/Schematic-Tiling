@@ -5,6 +5,18 @@ The easiest way is to download an executable file from [releases](https://github
 
 If you have [Python](https://www.python.org/downloads/), you can install the `litemapy` library by running `pip install litemapy` in the console. After that you'll be able to run the `src/main.py` directly.
 # How to use
+Suppose you have a file named `<something> Parts.litematic`, and you already downloaded either `schem_gen_vX.Y.exe` or `schem_gen_vX.Y.py`. If they're in the same folder, simply launch the program. The rest is self-explanatory.
+## Warning
+**Do not put multiple `... Parts.litematic` files in one folder with the program.** It's designed to run the first such file it encounters.
+## Best practice
+Create sub-folders for each contraption. For example, `STWE` for the side-trenchless world eater tiling, `VDQ` for tiling the vertical duping quarry, etc.
+```
+STWE
+|_STWE Parts.litematic
+|_schem_gen.exe
+|_...
+```
+# How to create generators
 The program turns litematica region names into a sort of markdown language that steers the tiling logic. The convention for region names is explained below, but here's the outline:
 ```
 Group//ID//X-flag//Z-flag
@@ -13,7 +25,7 @@ Group//Subgroup::ID//X-flag//Z-flag
 ```
 Then you save the litematica as `<insert_name> Parts.litematic` and ensure that the program is in the same directory.
 
-This markdown is easier to explain with examples. You can read the explanation with images below, or download existing [examples](examples).
+This markdown is easier to explain with examples. You can read the explanation with images below, or download and inspect existing [examples](examples).
 ## `Group`
 Suppose we have a schematic with just two regions, and they're named `A` and `B`. Then, after launching the program, even though it will ask to input width, it will output the same exact schematic with two regions: `A` and `B`.
 
